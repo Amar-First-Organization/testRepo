@@ -54,7 +54,7 @@ declare namespace Intl {
      *
      * [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DurationFormat/DurationFormat#fractionaldigits).
      */
-    type fractionalDigitsOption = 0|1|2|3|4|5|6|7|8|9
+    type FractionalDigitsOption = 0|1|2|3|4|5|6|7|8|9
 
     interface ResolvedDurationFormatOptions {
         locale?: UnicodeBCP47LocaleIdentifier
@@ -80,7 +80,7 @@ declare namespace Intl {
         microsecondsDisplay?: DurationFormatDisplayOption
         nanosecond?: DurationFormatOptions
         nanosecondDisplay?: DurationFormatDisplayOption
-        fractionalDigits?: fractionalDigitsOption
+        fractionalDigits?: FractionalDigitsOption
     }
 
     interface DurationFormatOptions {
@@ -107,7 +107,7 @@ declare namespace Intl {
         microsecondsDisplay?: DurationFormatDisplayOption
         nanosecond?: DurationFormatOption
         nanosecondDisplay?: DurationFormatDisplayOption
-        fractionalDigits?: fractionalDigitsOption
+        fractionalDigits?: FractionalDigitsOption
     }
 
     /**
@@ -115,7 +115,7 @@ declare namespace Intl {
      * 
      * [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DurationFormat/format#duration).
      */
-    type DurationType = Record<DurationTimeFormatUnit,number>
+    type DurationType = Partial<Record<DurationTimeFormatUnit,number>>
 
     interface DurationFormat {
         /**

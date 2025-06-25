@@ -3812,7 +3812,7 @@ function getCompletionData(
         if (inCheckedFile) {
             for (const symbol of type.getApparentProperties()) {
                 if (typeChecker.isValidPropertyAccessForCompletions(propertyAccess, type, symbol)) {
-                    addPropertySymbol(symbol, /*insertAwait*/ false, insertQuestionDot);
+                    addPropertySymbol(symbol, /*insertAwait*/ false, insertQuestionDot, type);
                 }
             }
         }
@@ -3830,14 +3830,14 @@ function getCompletionData(
             if (promiseType) {
                 for (const symbol of promiseType.getApparentProperties()) {
                     if (typeChecker.isValidPropertyAccessForCompletions(propertyAccess, promiseType, symbol)) {
-                        addPropertySymbol(symbol, /*insertAwait*/ true, insertQuestionDot);
+                        addPropertySymbol(symbol, /*insertAwait*/ true, insertQuestionDot, promiseType);
                     }
                 }
             }
         }
     }
 
-    function addPropertySymbol(symbol: Symbol, insertAwait: boolean, insertQuestionDot: boolean) {
+    function addPropertySymbol(symbol: Symbol, insertAwait: boolean, insertQuestionDot: boolean, completionType?: Type) {
         // For a computed property with an accessible name like `Symbol.iterator`,
         // we'll add a completion for the *name* `Symbol` instead of for the property.
         // If this is e.g. [Symbol.iterator], add a completion for `Symbol`.
@@ -3893,19 +3893,22 @@ function getCompletionData(
                     return;
                 }
                 addSymbolOriginInfo(symbol);
-                addSymbolSortInfo(symbol);
+                addSymbolSortInfo(symbol, completionType);
                 symbols.push(symbol);
             }
         }
         else {
             addSymbolOriginInfo(symbol);
-            addSymbolSortInfo(symbol);
+            addSymbolSortInfo(symbol, completionType);
             symbols.push(symbol);
         }
 
-        function addSymbolSortInfo(symbol: Symbol) {
+        function addSymbolSortInfo(symbol: Symbol, completionType?: Type) {
             if (isStaticProperty(symbol)) {
                 symbolToSortTextMap[getSymbolId(symbol)] = SortText.LocalDeclarationPriority;
+            }
+            else if (isNativeFunctionMethod(symbol, completionType) && hasCustomFunctionProperties(completionType)) {
+                symbolToSortTextMap[getSymbolId(symbol)] = SortText.SortBelow(SortText.LocationPriority);
             }
         }
 
@@ -5838,6 +5841,48 @@ function isProbablyGlobalType(type: Type, sourceFile: SourceFile, checker: TypeC
 
 function isStaticProperty(symbol: Symbol) {
     return !!(symbol.valueDeclaration && getEffectiveModifierFlags(symbol.valueDeclaration) & ModifierFlags.Static && isClassLike(symbol.valueDeclaration.parent));
+}
+
+function hasCustomFunctionProperties(completionType?: Type): boolean {
+    if (!completionType) {
+        return false;
+    }
+    
+    // Get all properties of the type
+    const properties = completionType.getApparentProperties();
+    
+    // Check if there are any properties that are not native Function methods
+    const nativeFunctionMethodNames = new Set(["apply", "call", "bind", "toString", "prototype", "length", "arguments", "caller", "name"]);
+    
+    return some(properties, prop => !nativeFunctionMethodNames.has(prop.name));
+}
+
+function isNativeFunctionMethod(symbol: Symbol, completionType?: Type): boolean {
+    const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+    if (!declaration) {
+        return false;
+    }
+    
+    const parent = declaration.parent;
+    if (!isInterfaceDeclaration(parent)) {
+        return false;
+    }
+    
+    const interfaceName = parent.name?.text;
+    if (interfaceName !== "Function" && interfaceName !== "CallableFunction") {
+        return false;
+    }
+    
+    // Only deprioritize for function types that have call signatures
+    if (completionType && !some(completionType.getCallSignatures())) {
+        return false;
+    }
+    
+    // Check if this declaration comes from a library file rather than user code
+    const sourceFile = declaration.getSourceFile();
+    return sourceFile.hasNoDefaultLib || 
+           sourceFile.fileName.includes("lib.") ||
+           sourceFile.fileName.includes("node_modules/@types/");
 }
 
 function tryGetObjectLiteralContextualType(node: ObjectLiteralExpression, typeChecker: TypeChecker) {
